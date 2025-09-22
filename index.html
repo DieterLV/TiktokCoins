@@ -276,6 +276,22 @@
 
         <div id="tablesContainer" class="tables-container"></div>
 
+        <!-- Nueva sección: Calculadora personalizada -->
+        <div class="form-container">
+            <div class="form-group">
+                <label for="customBS">Ingresa un monto en Bolivianos (BS):</label>
+                <input type="number" id="customBS" step="1" placeholder="Ej: 120" min="1">
+            </div>
+            <div class="form-group">
+                <label for="customCoins">O ingresa una cantidad de monedas:</label>
+                <input type="number" id="customCoins" step="1" placeholder="Ej: 730" min="1">
+            </div>
+            <button class="generate-btn" onclick="calculateCustom()">Calcular</button>
+        </div>
+
+        <div id="customResults" class="tables-container"></div>
+
+
         <div class="contact-info">
             <div class="contact-text">Contáctate al:</div>
             <div class="phone-number">74563812</div>
@@ -372,6 +388,126 @@
             document.getElementById('exchangeRate').value = '14.50';
             generateTables();
         };
+
+        function calculateCustom() {
+    const exchangeRate = parseFloat(document.getElementById('exchangeRate').value);
+    if (!exchangeRate || exchangeRate <= 0) {
+        alert('Por favor ingresa un tipo de cambio válido');
+        return;
+    }
+
+    const customBS = parseFloat(document.getElementById('customBS').value);
+    const customCoins = parseInt(document.getElementById('customCoins').value);
+
+    if ((!customBS || customBS <= 0) && (!customCoins || customCoins <= 0)) {
+        alert('Debes ingresar un monto en BS o una cantidad de monedas');
+        return;
+    }
+
+    const container = document.getElementById('customResults');
+    container.innerHTML = '';
+
+    const profitMargins = [
+        { percent: 10, class: 'profit-10', color: 'Ganancia 10%' },
+        { percent: 15, class: 'profit-15', color: 'Ganancia 15%' },
+        { percent: 20, class: 'profit-20', color: 'Ganancia 20%' }
+    ];
+
+    profitMargins.forEach(margin => {
+        // Generar precios en BS según la ganancia
+        const packageData = coinPackages.map(coins => {
+            const basePrice = basePricesUSD[coins];
+            const priceWithProfit = basePrice * (1 + margin.percent / 100);
+            const priceBS = Math.round(priceWithProfit * exchangeRate);
+            return { coins, priceBS };
+        });
+
+        // Ordenar de mayor a menor para el algoritmo tipo "cambio de monedas"
+        packageData.sort((a, b) => b.priceBS - a.priceBS);
+
+        let targetBS = customBS || null;
+        let targetCoins = customCoins || null;
+
+        let result = [];
+        let totalBS = 0;
+        let totalCoins = 0;
+
+        if (targetBS) {
+            // Caso: monto en BS
+            let remaining = targetBS;
+            packageData.forEach(pkg => {
+                while (pkg.priceBS <= remaining) {
+                    result.push(pkg);
+                    remaining -= pkg.priceBS;
+                    totalBS += pkg.priceBS;
+                    totalCoins += pkg.coins;
+                }
+            });
+        } else if (targetCoins) {
+            // Caso: cantidad de monedas
+            let remaining = targetCoins;
+            packageData.forEach(pkg => {
+                while (pkg.coins <= remaining) {
+                    result.push(pkg);
+                    remaining -= pkg.coins;
+                    totalBS += pkg.priceBS;
+                    totalCoins += pkg.coins;
+                }
+            });
+        }
+
+        // Construcción del HTML
+        const tableDiv = document.createElement('div');
+        tableDiv.className = 'profit-table';
+
+        let tableHTML = `
+            <div class="table-header ${margin.class}">
+                ${margin.color}
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Paquete</th>
+                        <th>Precio BS</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        if (result.length > 0) {
+            result.forEach(pkg => {
+                tableHTML += `
+                    <tr>
+                        <td class="coins-column">${pkg.coins} monedas</td>
+                        <td class="price-column">${pkg.priceBS}BS</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                <tr style="font-weight:bold; background:rgba(255,255,255,0.1);">
+                    <td>Total = ${totalCoins} monedas</td>
+                    <td>${totalBS}BS</td>
+                </tr>
+            `;
+        } else {
+            tableHTML += `
+                <tr>
+                    <td colspan="2">No se encontró una combinación exacta</td>
+                </tr>
+            `;
+        }
+
+        tableHTML += `
+                </tbody>
+            </table>
+        `;
+
+        tableDiv.innerHTML = tableHTML;
+        container.appendChild(tableDiv);
+    });
+}
+
     </script>
 </body>
 </html>
